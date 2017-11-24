@@ -11,8 +11,8 @@ import (
 type Database interface {
 	// Routes
 	CreateRoute(route *model.Route) error
-	DeleteRoute(routeID string) error
-	GetRoute(routeID string) (model.Route, error)
+	DeleteRoute(routeID int64) error
+	GetRoute(routeID int64) (model.Route, error)
 	GetRoutes() ([]model.Route, error)
 	ModifyRoute(route *model.Route) error
 
@@ -26,8 +26,8 @@ type Database interface {
 
 	// Vehicles
 	CreateVehicle(vehicle *model.Vehicle) error
-	DeleteVehicle(vehicleID int) error
-	GetVehicle(vehicleID int) (model.Vehicle, error)
+	DeleteVehicle(vehicleID int64) error
+	GetVehicle(vehicleID int64) (model.Vehicle, error)
 	GetVehicles() ([]model.Vehicle, error)
 	GetVehicleByITrakID(itrakID int) (model.Vehicle, error)
 	GetEnabledVehicles() ([]model.Vehicle, error)
@@ -37,8 +37,8 @@ type Database interface {
 	CreateUpdate(update *model.Update) error
 	DeleteUpdatesBefore(before time.Time) (int64, error)
 	// GetUpdatesSince(since time.Time) ([]model.VehicleUpdate, error)
-	GetUpdatesForVehicleSince(vehicleID int, since time.Time) ([]model.Update, error)
-	GetLastUpdateForVehicle(vehicleID int) (model.Update, error)
+	GetUpdatesForVehicleSince(vehicleID int64, since time.Time) ([]model.Update, error)
+	GetLastUpdateForVehicle(vehicleID int64) (model.Update, error)
 
 	// Users
 	GetUsers() ([]model.User, error)

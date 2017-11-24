@@ -7,8 +7,8 @@ import (
 
 // VehicleUpdate represents a single position observed for a Vehicle.
 type Update struct {
-	ID        int
-	VehicleID int       `json:"vehicleID,string"   bson:"vehicleID,omitempty" db:"vehicle_id"`
+	ID        int64
+	VehicleID int64     `json:"vehicleID,string"   bson:"vehicleID,omitempty" db:"vehicle_id"`
 	Latitude  float64   `json:"lat"         bson:"lat"`
 	Longitude float64   `json:"lng"         bson:"lng"`
 	Heading   string    `json:"heading"     bson:"heading"`
@@ -16,13 +16,13 @@ type Update struct {
 	Lock      string    `json:"lock"        bson:"lock"`
 	Timestamp time.Time `json:"time"        bson:"time"`
 	Created   time.Time `json:"created"     bson:"created"`
-	Route     string    `json:"RouteID"     bson:"routeID"`
+	RouteID   int64     `json:"RouteID,string"     bson:"routeID"`
 }
 
 // Vehicle represents an object being tracked.
 type Vehicle struct {
-	ID      int       `json:"vehicleID,string"`
-	ITrakID int       `json:"itrakID"   bson:"itrakID,omitempty" db:"itrak_id"`
+	ID      int64     `json:"vehicleID,string"`
+	ITrakID int64     `json:"itrakID"   bson:"itrakID,omitempty" db:"itrak_id"`
 	Name    string    `json:"vehicleName" bson:"vehicleName"`
 	Created time.Time `bson:"created"`
 	Updated time.Time `bson:"updated"`
@@ -55,35 +55,45 @@ type Coord struct {
 
 // Route represents a set of coordinates to draw a path on our tracking map
 type Route struct {
-	ID             string    `json:"id"             bson:"id" db:"id"`
-	Name           string    `json:"name"           bson:"name"`
-	Description    string    `json:"description"    bson:"description"`
-	StartTime      string    `json:"startTime"      bson:"startTime"`
-	EndTime        string    `json:"endTime"        bson:"endTime"`
-	Enabled        bool      `json:"enabled,bool"	  bson:"enabled"`
-	Color          string    `json:"color"          bson:"color"`
-	Width          int       `json:"width,string"   bson:"width"`
-	Coords         []Coord   `json:"coords"         bson:"coords"`
-	Duration       []Segment `json:"duration"       bson:"duration"`
-	StopsID        []string  `json:"stopsid"        bson:"stopsid"`
-	AvailableRoute int       `json:"availableroute" bson:"availableroute"`
-	Created        time.Time `json:"created"        bson:"created" db:"created"`
-	Updated        time.Time `json:"updated"        bson:"updated" db:"updated"`
+	ID          int64       `json:"id,string"             bson:"id" db:"id"`
+	Name        string      `json:"name"           bson:"name" db:"name"`
+	Description string      `json:"description"    bson:"description"`
+	StartTime   string      `json:"startTime"      bson:"startTime"`
+	EndTime     string      `json:"endTime"        bson:"endTime"`
+	Enabled     bool        `json:"enabled,bool"	  bson:"enabled"`
+	Color       string      `json:"color"          bson:"color"`
+	Width       int         `json:"width,string"   bson:"width"`
+	Coords      []Coord     `json:"coords"         bson:"coords"`
+	Duration    []Segment   `json:"duration"       bson:"duration"`
+	StopsID     []int64     `json:"stopsid,[]string"        bson:"stopsid"`
+	Created     time.Time   `json:"created"        bson:"created" db:"created"`
+	Updated     time.Time   `json:"updated"        bson:"updated" db:"updated"`
+	Stops       []RouteStop `json:"stops"`
 }
 
 // Stop indicates where a tracked object is scheduled to arrive
 type Stop struct {
-	ID           string  `json:"id"             bson:"id"`
+	ID           int64   `json:"id,string"             bson:"id"`
 	Name         string  `json:"name"           bson:"name"`
 	Description  string  `json:"description"    bson:"description"`
-	Lat          float64 `json:"lat,string"     bson:"lat"`
-	Lng          float64 `json:"lng,string"     bson:"lng"`
+	Latitude     float64 `json:"lat,string"     bson:"lat"`
+	Longitude    float64 `json:"lng,string"     bson:"lng"`
 	Address      string  `json:"address"        bson:"address"`
 	StartTime    string  `json:"startTime"      bson:"startTime"`
 	EndTime      string  `json:"endTime"        bson:"endTime"`
 	Enabled      bool    `json:"enabled,string" bson:"enabled"`
-	RouteID      string  `json:"routeId"        bson:"routeId"`
 	SegmentIndex int     `json:"segmentindex"   bson:"segmentindex"`
+	Order        int64   `db:"stop_order"`
+	Created      time.Time
+	Updated      time.Time
+	Routes       []int64 `json:"routes" db:"routes"`
+}
+
+type RouteStop struct {
+	ID      int64 `json:"id"`
+	RouteID int64 `json:"routeID"`
+	StopID  int64 `json:"stopID"`
+	Order   int64 `json:"order" db:"stop_order"`
 }
 
 type MapPoint struct {

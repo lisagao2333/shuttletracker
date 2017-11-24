@@ -15,7 +15,6 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/wtg/shuttletracker/model"
-	"gopkg.in/mgo.v2/bson"
 )
 
 // RoutesHandler finds all of the routes in the database
@@ -24,7 +23,9 @@ func (api *API) RoutesHandler(w http.ResponseWriter, r *http.Request) {
 	routes, err := api.db.GetRoutes()
 	// Handle query errors
 	if err != nil {
+		log.WithError(err).Error("Unable to get routes.")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	// Send each route to client as JSON
 	WriteJSON(w, routes)
@@ -36,7 +37,9 @@ func (api *API) StopsHandler(w http.ResponseWriter, r *http.Request) {
 	stops, err := api.db.GetStops()
 	// Handle query errors
 	if err != nil {
+		log.WithError(err).Error("Unable to get stops.")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	// Send each stop to client as JSON
 	WriteJSON(w, stops)
@@ -87,7 +90,6 @@ func (api *API) RoutesCreateHandler(w http.ResponseWriter, r *http.Request) {
 	currentTime := time.Now()
 	// Create a new route
 	route := model.Route{
-		ID:          bson.NewObjectId().Hex(),
 		Name:        routeData["name"],
 		Description: routeData["description"],
 		StartTime:   routeData["startTime"],
@@ -114,9 +116,13 @@ func (api *API) RoutesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	vars := mux.Vars(r)
-	fmt.Printf(vars["id"])
-	log.Debugf("deleting", vars["id"])
-	err := api.db.DeleteRoute(vars["id"])
+	routeID, err := strconv.ParseInt(vars["id"], 10, 64)
+	if err != nil {
+		log.WithError(err).Error("Unable to convert route ID to int64.")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = api.db.DeleteRoute(routeID)
 	// Error handling
 	if err != nil {
 		log.WithError(err).Error("Unable to delete route.")
@@ -163,32 +169,34 @@ func (api *API) StopsCreateHandler(w http.ResponseWriter, r *http.Request) {
 	// Create a new stop object using request fields
 	stop := model.Stop{}
 	err := json.NewDecoder(r.Body).Decode(&stop)
-	stop.ID = bson.NewObjectId().Hex()
-	route, err1 := api.db.GetRoute(stop.RouteID)
-	// Error handling
-
-	if err1 != nil {
-		http.Error(w, err1.Error(), http.StatusInternalServerError)
-	}
+	// route, err1 := api.db.GetRoute(stop.RouteID)
+	// // Error handling
+	//
+	// if err1 != nil {
+	// 	http.Error(w, err1.Error(), http.StatusInternalServerError)
+	// }
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	// We have to know the order of the stop and store a velocity vector into duration for the prediction
-	route.StopsID = append(route.StopsID, stop.ID) // THIS REQUIRES the front end to have correct order << to be improved
-	fmt.Println(route.StopsID)
+	// route.StopsID = append(route.StopsID, stop.ID) // THIS REQUIRES the front end to have correct order << to be improved
+	// fmt.Println(route.StopsID)
 
 	// Store new stop under stops collection
 	err = api.db.CreateStop(&stop)
 	// Error handling
 	if err != nil {
-		fmt.Println(err.Error())
+		log.WithError(err).Error("Unable to create stop.")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	err = api.db.ModifyRoute(&route)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	// err = api.db.ModifyRoute(&route)
+	// if err != nil {
+	// 	log.WithError(err).Error("Unable to modify route.")
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
 	WriteJSON(w, stop)
 }
 

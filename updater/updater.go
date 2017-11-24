@@ -192,7 +192,7 @@ func (u *Updater) update() {
 				Lock:      strings.Replace(result["lock"], "lck:", "", -1),
 				Timestamp: timestamp,
 				Created:   time.Now(),
-				Route:     route.ID,
+				RouteID:   route.ID,
 			}
 
 			if err := u.db.CreateUpdate(&update); err != nil {
@@ -265,7 +265,7 @@ func (u *Updater) GuessRouteForVehicle(vehicle *model.Vehicle) (route model.Rout
 		log.Error(err)
 	}
 
-	routeDistances := make(map[string]float64)
+	routeDistances := make(map[int64]float64)
 	for _, route := range routes {
 		routeDistances[route.ID] = 0
 	}
@@ -302,7 +302,7 @@ func (u *Updater) GuessRouteForVehicle(vehicle *model.Vehicle) (route model.Rout
 	}
 
 	minDistance := math.Inf(0)
-	var minRouteID string
+	var minRouteID int64
 	for id := range routeDistances {
 		distance := routeDistances[id] / float64(len(updates))
 		if distance < minDistance {
@@ -311,13 +311,13 @@ func (u *Updater) GuessRouteForVehicle(vehicle *model.Vehicle) (route model.Rout
 			// If more than ~5% of the last 100 samples were far away from a route, say the shuttle is not on a route
 			// This is extremely aggressive and requires a shuttle to be on a route for ~5 minutes before it registers as on the route
 			if minDistance > 5 {
-				minRouteID = ""
+				minRouteID = -1
 			}
 		}
 	}
 
 	// not on a route
-	if minRouteID == "" {
+	if minRouteID == -1 {
 		log.Debugf("%v not on route; distance from nearest: %v", vehicle.Name, minDistance)
 		return model.Route{}, nil
 	}

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/fatih/structs"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // Postgres database package
 	"github.com/spf13/viper"
@@ -37,18 +38,18 @@ func NewPostgres(cfg PostgresConfig) (*Postgres, error) {
 	schema := `
     CREATE TABLE IF NOT EXISTS routes (
         id serial PRIMARY KEY,
-        name text,
-        description text,
+        name text NOT NULL,
+        description text NOT NULL,
         enabled boolean NOT NULL,
-        color text,
+        color text NOT NULL,
         created timestamp with time zone NOT NULL DEFAULT current_timestamp,
         updated timestamp with time zone NOT NULL DEFAULT current_timestamp
     );
 
     CREATE TABLE IF NOT EXISTS stops (
         id serial PRIMARY KEY,
-        name text,
-        description text,
+        name text NOT NULL,
+        description text NOT NULL,
         latitude numeric NOT NULL,
         longitude numeric NOT NULL,
         enabled boolean NOT NULL,
@@ -120,13 +121,13 @@ func (pg *Postgres) CreateRoute(route *model.Route) error {
 }
 
 // DeleteRoute deletes a Route by its ID.
-func (pg *Postgres) DeleteRoute(routeID string) error {
+func (pg *Postgres) DeleteRoute(routeID int64) error {
 	_, err := pg.db.Exec(`DELETE FROM routes WHERE id = $1;`, routeID)
 	return err
 }
 
 // GetRoute returns a Route by its ID.
-func (pg *Postgres) GetRoute(routeID string) (model.Route, error) {
+func (pg *Postgres) GetRoute(routeID int64) (model.Route, error) {
 	stmt, err := pg.db.Preparex(`SELECT * FROM routes WHERE id = $1;`)
 	if err != nil {
 		return model.Route{}, err
@@ -202,10 +203,58 @@ func (pg *Postgres) GetStop(stopID string) (model.Stop, error) {
 	return stop, nil
 }
 
+type stopJoinedWithRoute struct {
+	model.Stop
+	RouteID int64 `db:"route_id"`
+}
+
 // GetStops returns all Stops.
 func (pg *Postgres) GetStops() ([]model.Stop, error) {
-	var stops []model.Stop
-	return stops, nil
+	stops := []model.Stop{}
+	stopsByID := map[int64]*model.Stop{}
+	query := `SELECT
+            stops.*,
+            routes_stops.route_id "route_id"
+        FROM stops JOIN routes_stops ON stops.id = routes_stops.stop_id;`
+	rows, err := pg.db.Queryx(query)
+	if err != nil {
+		return stops, err
+	}
+	for rows.Next() {
+		dbStop := stopJoinedWithRoute{}
+		err = rows.StructScan(&dbStop)
+		if err != nil {
+			return stops, err
+		}
+		if existingStop, ok := stopsByID[dbStop.ID]; ok {
+			// existing stop, add this route to array
+			existingStop.Routes = append(existingStop.Routes, dbStop.RouteID)
+		} else {
+			// new stop; copy all field values from DB struct to model struct
+			stop := &model.Stop{}
+			stopStruct := structs.New(stop)
+			dbStopStruct := structs.New(dbStop)
+			for _, f := range stopStruct.Fields() {
+				if f.IsExported() {
+					dbStructField := dbStopStruct.Field(f.Name())
+					stopStruct.Field(f.Name()).Set(dbStructField.Value())
+				}
+			}
+			stop.Routes = []int64{dbStop.RouteID}
+			stopsByID[dbStop.ID] = stop
+
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return stops, err
+	}
+
+	// turn map into slice
+	for _, stop := range stopsByID {
+		stops = append(stops, *stop)
+	}
+	return stops, err
 }
 
 // CreateUpdate creates an Update.
@@ -230,7 +279,7 @@ func (pg *Postgres) DeleteUpdatesBefore(before time.Time) (int64, error) {
 }
 
 // GetLastUpdateForVehicle returns the latest Update for a vehicle by its ID.
-func (pg *Postgres) GetLastUpdateForVehicle(vehicleID int) (model.Update, error) {
+func (pg *Postgres) GetLastUpdateForVehicle(vehicleID int64) (model.Update, error) {
 	stmt, err := pg.db.Preparex(`
         SELECT * FROM updates WHERE vehicle_id = $1
         ORDER BY created DESC LIMIT 1;`)
@@ -246,7 +295,7 @@ func (pg *Postgres) GetLastUpdateForVehicle(vehicleID int) (model.Update, error)
 }
 
 // GetUpdatesForVehicleSince returns all updates since a time for a vehicle by its ID.
-func (pg *Postgres) GetUpdatesForVehicleSince(vehicleID int, since time.Time) ([]model.Update, error) {
+func (pg *Postgres) GetUpdatesForVehicleSince(vehicleID int64, since time.Time) ([]model.Update, error) {
 	stmt, err := pg.db.Preparex(`
         SELECT * FROM updates
         WHERE vehicle_id = $1 and created > $2
@@ -294,12 +343,12 @@ func (pg *Postgres) CreateVehicle(vehicle *model.Vehicle) error {
 }
 
 // DeleteVehicle deletes a Vehicle by its ID.
-func (pg *Postgres) DeleteVehicle(vehicleID int) error {
+func (pg *Postgres) DeleteVehicle(vehicleID int64) error {
 	return nil
 }
 
 // GetVehicle returns a Vehicle by its ID.
-func (pg *Postgres) GetVehicle(vehicleID int) (model.Vehicle, error) {
+func (pg *Postgres) GetVehicle(vehicleID int64) (model.Vehicle, error) {
 	stmt, err := pg.db.Preparex(`SELECT * FROM vehicles WHERE id = $1;`)
 	if err != nil {
 		return model.Vehicle{}, err

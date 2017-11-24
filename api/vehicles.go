@@ -98,9 +98,10 @@ func (api *API) VehiclesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	vars := mux.Vars(r)
-	vehicleID, err := strconv.Atoi(vars["id"])
+	vehicleID, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		log.WithError(err).Error("Unable to parse vehicle ID from string.")
+		log.WithError(err).Error("Unable to convert route ID to int64.")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	err = api.db.DeleteVehicle(vehicleID)
